@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <iostream>
 #include <string.h>
+#include <ctype.h>
 
 /*
 
@@ -19,8 +20,20 @@ void load_map_file(FILE * mapfile, std::unordered_map<std::string, std::string> 
     char buffer[1024];
     char s1[1024], s2[1024], s3[1024];
     s1[0] = s2[0] = s3[0] = '\0';
+
+    fseek(mapfile, 0, SEEK_END);
+    size_t size = ftell(mapfile);
+    if(size == 0) { fprintf(stderr, "Error, Mapfile is empty\n"); exit(-1); }
+
+    uint64_t loaded = 0;
+    size_t prev = 0;
+    rewind(mapfile);
+    std::cout << "File has " << size << " bytes, or " << size / (1024 * 1024) << " MBs\n";
     while(!feof(mapfile)) {
-        if(fgets(buffer, 1024, mapfile) > 0) {
+        char * ptr = fgets(buffer, 1024, mapfile);
+        if(buffer[0] != '\0' && ptr != NULL) {
+            loaded += (uint64_t) strlen(buffer);
+            if((loaded*100 / (uint64_t) size) > prev) { fprintf(stdout, "Loaded %d %%\n", (int) (loaded*100 / size)); prev = loaded * 100 / size; }
             sscanf(buffer, "%s %s %s", s1, s2, s3);
             std::string str1(s1);
             std::string str2(s2);
@@ -45,9 +58,19 @@ void extract_token(char * s, uint64_t slen, char delimiter, char * token) {
     }
 }
 
+char * get_lowercase(char * a) {
+    uint64_t i = 0;
+    char * b = (char *) malloc(strlen(a));
+    while(a[i] != '\0'){
+        b[i] = tolower(a[i]);
+        ++i;
+    }
+    return b;
+} 
 
-void associate(FILE * blastx, std::unordered_map<std::string, std::string> * ht, FILE * output) {
-    char buffer[1024];
+void associate(FILE * blastx, std::unordered_map<std::string, std::string> * ht, FILE * output, char * type_ID) {
+    char buffer[1024]; buffer[0] = '\0';
+    char * lowercase_type_ID = get_lowercase(type_ID);
     unsigned char delete_next_line = 0;
 
     while(!feof(blastx)) {
@@ -57,6 +80,7 @@ void associate(FILE * blastx, std::unordered_map<std::string, std::string> * ht,
                 // Just do not print anything until we find Length=
                 if(strncmp(&buffer[0], "Length=", 7) == 0) {
                     delete_next_line = 0;
+                    fprintf(output, "%s", buffer);
                 }
             }
             else if(buffer[0] == '>') {
@@ -69,7 +93,7 @@ void associate(FILE * blastx, std::unordered_map<std::string, std::string> * ht,
                 std::string input(token);
 
                 std::unordered_map<std::string, std::string>::const_iterator tuple = ht->find(input);
-                if (tuple != ht->end()) fprintf(output, "> gi|%s| \n", tuple->second.c_str());
+                if (tuple != ht->end()) fprintf(output, "> %s|%s| \n", lowercase_type_ID, tuple->second.c_str());
                 else fprintf(output, "%s", buffer);
 
             } else {
@@ -77,6 +101,7 @@ void associate(FILE * blastx, std::unordered_map<std::string, std::string> * ht,
             }
         }
     }
+    free(lowercase_type_ID);
 }
 
 
@@ -104,7 +129,7 @@ int main(int argc, char ** av) {
     fclose(mapfile);
 
     fprintf(stdout, "Associating UNIPROT ids to %s\n", type_ID);
-    associate(blastx, ht, output);
+    associate(blastx, ht, output, type_ID);
     fclose(blastx);
     fclose(output);
 
