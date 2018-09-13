@@ -19,5 +19,10 @@ where idmapping.dat corresponds to the file you just unzipped and input.blastx i
 
 or any other. The last file is the output file with the converted IDs. Those IDs that are not found in the mapping file are left untouched.
 
+# ATTENTION
+It is most convenient to use the GI mapping (first command line above) and then utilize the file mappings provided by MEGAN, since these will take care of the tags accordingly. You can download the mappings from GI to any database here:
+
+http://ab.inf.uni-tuebingen.de/data/software/megan6/download/welcome.html
+
 Happy converting!
 
